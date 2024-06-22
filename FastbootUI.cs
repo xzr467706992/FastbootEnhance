@@ -1,9 +1,14 @@
 ﻿using ChromeosUpdateEngine;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Windows;
+using Ookii.Dialogs.Wpf;
+using System.Windows.Forms;
+using MessageBox = System.Windows.MessageBox;
 
 namespace FastbootEnhance
 {
@@ -13,6 +18,7 @@ namespace FastbootEnhance
         static List<fastboot_devices_row> devices;
         static string cur_serial;
         static FastbootData fastbootData;
+        public Var var1;
 
         static Logger logger;
         static void appendLog(string logs)
@@ -715,6 +721,31 @@ namespace FastbootEnhance
                             MessageBox.Show(Properties.Resources.payload_unsupported_format + "\n" + exc.Message);
                             return;
                         }
+                        string partition_list = "";
+                        foreach (PartitionUpdate partitionUpdate in payload.manifest.Partitions)
+                        {
+                            partition_list += partitionUpdate.PartitionName + " ";
+                        }
+                        MessageBox.Show(partition_list);
+                        MessageBox.Show(Var.payload_extracted_newvar.ToString());
+                        if (Var.payload_extracted_newvar == true)
+                        {
+                            System.Windows.Forms.FolderBrowserDialog dialog = new System.Windows.Forms.FolderBrowserDialog();
+                            dialog.Description = "请选择一个目录作为路径：";
+                            dialog.ShowNewFolderButton = true;
+                            dialog.RootFolder = Environment.SpecialFolder.MyComputer;
+                            System.Windows.Forms.DialogResult result = dialog.ShowDialog();
+                            Var.pe_path=dialog.SelectedPath;
+
+                            /*Ookii.Dialogs.Wpf.VistaFolderBrowserDialog folderBrowser = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog();
+                            folderBrowser.Description = "请选择img所在的目录";
+                            Var.pe_path = folderBrowser.SelectedPath;*/
+                            MessageBox.Show(Var.pe_path);
+
+                        }
+
+                        //Process.GetCurrentProcess().Kill();
+
 
                         //Ensure that all partitions are there
                         string unknown_partition_list = "";
@@ -739,58 +770,88 @@ namespace FastbootEnhance
                         }
 
                         Directory.CreateDirectory(PAYLOAD_TMP);
+                        MessageBox.Show(PAYLOAD_TMP);
+                        
 
                         action_lock();
                         new Thread(new ThreadStart(delegate
                         {
                             int count_full = payload.manifest.Partitions.Count * 2;
                             int count = 0;
-                            foreach (PartitionUpdate partitionUpdate in payload.manifest.Partitions)
+                            if (Var.payload_extracted_newvar == false)
                             {
-                                appendLog("Extracting " + partitionUpdate.PartitionName);
-                                Payload.PayloadExtractionException e = payload.extract(partitionUpdate.PartitionName,
-                                    PAYLOAD_TMP, false, false);
-
-                                if (e != null)
+                                Process.GetCurrentProcess().Kill();
+                                foreach (PartitionUpdate partitionUpdate in payload.manifest.Partitions)
                                 {
-                                    MessageBox.Show(e.Message);
-                                    MainWindow.THIS.Dispatcher.Invoke(new Action(delegate
+                                    appendLog("Extracting " + partitionUpdate.PartitionName);
+                                    Payload.PayloadExtractionException e = payload.extract(partitionUpdate.PartitionName,
+                                        PAYLOAD_TMP, false, false);
+
+                                    if (e != null)
                                     {
-                                        action_unlock();
-                                    }));
-                                    payload.Dispose();
-                                    return;
-                                }
-
-                                appendLog("Extracted " + partitionUpdate.PartitionName);
-
-                                MainWindow.THIS.Dispatcher.BeginInvoke(new Action(delegate
-                                {
-                                    MainWindow.THIS.fastboot_progress_bar.Value = 100 * ++count / count_full;
-                                    Helper.TaskbarItemHelper.update(100 * count / count_full);
-                                }));
-                            }
-
-                            foreach (PartitionUpdate partitionUpdate in payload.manifest.Partitions)
-                            {
-                                using (Fastboot fastboot = new Fastboot
-                                (cur_serial, "flash \"" + partitionUpdate.PartitionName + "\" \"" + PAYLOAD_TMP + "\\" + partitionUpdate.PartitionName + ".img\""))
-                                {
-                                    while (true)
-                                    {
-                                        string err = fastboot.stderr.ReadLine();
-
-                                        if (err == null)
-                                            break;
-
-                                        appendLog(err);
+                                        MessageBox.Show(e.Message);
+                                        MainWindow.THIS.Dispatcher.Invoke(new Action(delegate
+                                        {
+                                            action_unlock();
+                                        }));
+                                        payload.Dispose();
+                                        return;
                                     }
+
+                                    appendLog("Extracted " + partitionUpdate.PartitionName);
 
                                     MainWindow.THIS.Dispatcher.BeginInvoke(new Action(delegate
                                     {
                                         MainWindow.THIS.fastboot_progress_bar.Value = 100 * ++count / count_full;
                                         Helper.TaskbarItemHelper.update(100 * count / count_full);
                                     }));
+                                }
+                                foreach (PartitionUpdate partitionUpdate in payload.manifest.Partitions)
+                                {
+                                    using (Fastboot fastboot = new Fastboot
+                                    (cur_serial, "flash \"" + partitionUpdate.PartitionName + "\" \"" + PAYLOAD_TMP + "\\" + partitionUpdate.PartitionName + ".img\""))
+                                    {
+                                        while (true)
+                                        {
+                                            string err = fastboot.stderr.ReadLine();
+
+                                            if (err == null)
+                                                break;
+
+                                            appendLog(err);
+                                        }
+
+                                        MainWindow.THIS.Dispatcher.BeginInvoke(new Action(delegate
+                                        {
+                                            MainWindow.THIS.fastboot_progress_bar.Value = 100 * ++count / count_full;
+                                            Helper.TaskbarItemHelper.update(100 * count / count_full);
+                                        }));
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                foreach (PartitionUpdate partitionUpdate in payload.manifest.Partitions)
+                                {
+                                    using (Fastboot fastboot = new Fastboot
+                                    (cur_serial, "flash \"" + partitionUpdate.PartitionName + "\" \"" + Var.pe_path + "\\" + partitionUpdate.PartitionName + ".img\""))
+                                    {
+                                        while (true)
+                                        {
+                                            string err = fastboot.stderr.ReadLine();
+
+                                            if (err == null)
+                                                break;
+
+                                            appendLog(err);
+                                        }
+
+                                        MainWindow.THIS.Dispatcher.BeginInvoke(new Action(delegate
+                                        {
+                                            MainWindow.THIS.fastboot_progress_bar.Value = 100 * ++count / count_full;
+                                            Helper.TaskbarItemHelper.update(100 * count / count_full);
+                                        }));
+                                    }
                                 }
                             }
 
