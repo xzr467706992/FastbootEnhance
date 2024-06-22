@@ -11,6 +11,7 @@ namespace FastbootEnhance
     public partial class MainWindow : Window
     {
         public static MainWindow THIS;
+        public bool payloadextracted = false;
         const string version = "1.4.0";
         public MainWindow()
         {
@@ -74,6 +75,17 @@ namespace FastbootEnhance
         private void OSS_Click(object sender, RoutedEventArgs e)
         {
             Process.Start("https://github.com/libxzr/FastbootEnhance");
+        }
+
+        private void payload_extracted_Checked(object sender, RoutedEventArgs e)
+        {
+            Var.payload_extracted_newvar = true;
+            MessageBox.Show(Var.payload_extracted_newvar.ToString());
+        }
+        private void payload_extracted_UnChecked(object sender, RoutedEventArgs e)
+        {
+            Var.payload_extracted_newvar = false;
+            MessageBox.Show(Var.payload_extracted_newvar.ToString());
         }
     }
 }
